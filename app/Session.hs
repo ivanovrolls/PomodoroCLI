@@ -10,13 +10,12 @@ runSession :: Int -> [String] -> String -> IO ()
 runSession duration frames finishMsg = do
     pauseFlag <- newIORef False
     skipFlag <- newIORef False
-    quitFlag <- newIORef False
-    _ <- forkIO $ inputListener pauseFlag skipFlag quitFlag --start input listener in a separate thread
+    _ <- forkIO (inputListener pauseFlag skipFlag) --start input listener in a separate thread
     doneAnim <- newEmptyMVar
     doneTimer <- newEmptyMVar
 
-    _ <- forkIO $ animate frames (duration * 2) pauseFlag skipFlag quitFlag >> putMVar doneAnim ()
-    _ <- forkIO $ timer duration pauseFlag skipFlag quitFlag >> putMVar doneTimer ()
+    _ <- forkIO $ animate frames (duration * 2) pauseFlag skipFlag >> putMVar doneAnim ()
+    _ <- forkIO $ timer duration pauseFlag skipFlag >> putMVar doneTimer ()
 
     takeMVar doneAnim
     takeMVar doneTimer

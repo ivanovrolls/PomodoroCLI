@@ -17,19 +17,15 @@ catHeight = 3
 cursorUpN :: Int -> IO ()
 cursorUpN n = cursorUpLine n
 
-animate :: [String] -> Int -> IORef Bool -> IORef Bool -> IORef Bool -> IO ()
-animate _ 0 _ _ _ = return ()
-animate frames n pauseFlag skipFlag quitFlag = do
+animate :: [String] -> Int -> IORef Bool -> IORef Bool -> IO ()
+animate _ 0 _ _ = return ()
+animate frames n pauseFlag skipFlag = do
     paused <- readIORef pauseFlag
     skip   <- readIORef skipFlag
-    quit   <- readIORef quitFlag
-
-    if quit || skip
-    then return ()
-    else if paused
-    then do
+    
+    if paused then do
         threadDelay 500000
-        animate frames n pauseFlag skipFlag quitFlag
+        animate frames n pauseFlag skipFlag
     else do
         cursorUpN catHeight
         sequence_ [clearLine >> cursorDownLine 1 | _ <- [1..catHeight]]
@@ -37,7 +33,7 @@ animate frames n pauseFlag skipFlag quitFlag = do
         putStr (frames !! (n `mod` length frames))
         hFlush stdout
         threadDelay 500000
-        animate frames (n - 1) pauseFlag skipFlag quitFlag
+        animate frames (n - 1) pauseFlag skipFlag
 
 sleepFrames :: [String]
 sleepFrames =
