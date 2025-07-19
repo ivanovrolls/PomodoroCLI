@@ -1,10 +1,13 @@
 module Main where
 import Control.Concurrent (forkIO, threadDelay, newEmptyMVar, putMVar, takeMVar)
 import Text.Printf (printf)
-import System.IO (hFlush, stdout)
+import System.IO (hFlush, stdout, stdin, hSetBuffering, BufferMode(NoBuffering), hGetChar)
 import System.Console.ANSI (cursorUpLine, cursorDownLine, clearLine)
 import System.Environment (getArgs)
 import Text.Read (readMaybe)
+import Data.IORef
+import Control.Monad (when, forever)
+
 
 
 main :: IO ()
@@ -21,51 +24,64 @@ main = do
         _ -> putStrLn "Usage: PomodoroCLI <work_time_in_minutes> <break_time_in_minutes>"
 
 
--- generic timer
-timer :: Int -> IO ()
-timer 0 = do
+--generic timer
+timer :: Int -> IORef Bool -> IO ()
+timer 0 _ = do
     putStrLn "\r00:00 remaining"
     putStrLn "Time's up!"
-timer n = do
-    let mins = n `div` 60
-    let secs = n `mod` 60
-    printf "\r%02d:%02d remaining" mins secs
-    hFlush stdout
-    threadDelay 1000000  -- 1 second
-    timer (n - 1)
+timer n pauseRef = do
+    paused <- readIORef pauseRef
+    if paused
+    then do
+        threadDelay 500000
+        timer n pauseRef
+    else do
+        let mins = n `div` 60
+        let secs = n `mod` 60
+        printf "\r%02d:%02d remaining" mins secs
+        hFlush stdout
+        threadDelay 1000000
+        timer (n - 1) pauseRef
 
--- work timer
+
+--work timer
 workTimer :: Int -> IO ()
 workTimer x = do
+    pauseRef <- newIORef False
+    _ <- forkIO $ inputListener pauseRef --start input listener in a separate thread
     done <- newEmptyMVar
+    doneTimer <- newEmptyMVar
 
-    --animation thread
     _ <- forkIO $ do
-        animate workFrames (x * 2) --roughly x seconds
+        animate workFrames (x * 2) pauseRef --roughly x seconds
         putMVar done ()
 
-    --timer thread
-    timer x 
+    _ <- forkIO $ do
+        timer x pauseRef
+        putMVar doneTimer ()
 
-    --wait for animation and timer
     takeMVar done
+    takeMVar doneTimer
     putStrLn "\nWork session complete! Time for a break."
 
--- break timer
+--break timer
 breakTimer :: Int -> IO ()
 breakTimer x = do
+    pauseRef <- newIORef False
+    _ <- forkIO $ inputListener pauseRef
     done <- newEmptyMVar
+    doneTimer <- newEmptyMVar
 
-    --animation thread
     _ <- forkIO $ do
-        animate sleepFrames (x * 2) --roughly x seconds
+        animate sleepFrames (x * 2) pauseRef --roughly x seconds
         putMVar done ()
 
-    --timer thread
-    timer x
+    _ <- forkIO $ do
+        timer x pauseRef
+        putMVar doneTimer ()
 
-    --wait for animation and timer
     takeMVar done
+    takeMVar doneTimer
     putStrLn "\nBreak session complete! Back to work."
 
 
@@ -80,16 +96,34 @@ cursorUpN :: Int -> IO ()
 cursorUpN n = cursorUpLine n
 
 
-animate :: [String] -> Int -> IO () --animates frames
-animate _ 0 = return ()
-animate frames n = do
-    cursorUpN catHeight --move cursor up by height of cat
-    sequence_ [clearLine >> cursorDownLine 1 | _ <- [1..catHeight]] --clear line then move down (recurses and clears the lines)
-    cursorUpN catHeight
-    putStr (frames !! (n `mod` length frames)) --print current frame
-    hFlush stdout --flush output to avoid buffering issues
-    threadDelay 500000  --0.5s
-    animate frames (n - 1) --recursively animate n amount of times
+animate :: [String] -> Int -> IORef Bool -> IO () --animates frames
+animate _ 0 _ = return ()
+animate frames n pauseRef = do
+    paused <- readIORef pauseRef
+    if paused
+    then do
+        threadDelay 500000 --if paused, just wait
+        animate frames n pauseRef
+    else do
+        cursorUpN catHeight --move cursor up by height of cat
+        sequence_ [clearLine >> cursorDownLine 1 | _ <- [1..catHeight]] --clear line then move down (recurses and clears the lines)
+        cursorUpN catHeight
+        putStr (frames !! (n `mod` length frames)) --print current frame
+        hFlush stdout --flush output to avoid buffering issues
+        threadDelay 500000  --0.5s
+        animate frames (n - 1) pauseRef --recursively animate n amount of times
+
+--listen for input
+inputListener :: IORef Bool -> IO ()
+inputListener pauseFlag = do
+    hSetBuffering stdin NoBuffering --set input so u dont have to press enter
+    forever $ do
+        c <- hGetChar stdin
+        when (c == 'p' || c == 'P') $ do
+            paused <- readIORef pauseFlag
+            writeIORef pauseFlag (not paused) --toggle pause state
+            putStrLn $ if paused then "\nResumed." else "\nPaused."
+
 
 --sleep
 sleepFrames :: [String]
