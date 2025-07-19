@@ -3,12 +3,23 @@ import Control.Concurrent (forkIO, threadDelay, newEmptyMVar, putMVar, takeMVar)
 import Text.Printf (printf)
 import System.IO (hFlush, stdout)
 import System.Console.ANSI (cursorUpLine, cursorDownLine, clearLine)
+import System.Environment (getArgs)
+import Text.Read (readMaybe)
+
 
 main :: IO ()
 main = do
-    putStrLn "Starting Pomodoro Timer (25 minutes)..."
-    workTimer 5
-    breakTimer 5
+    args <- getArgs
+    case args of
+        [workStr, breakStr] -> do
+            case (readMaybe workStr :: Maybe Int, readMaybe breakStr :: Maybe Int) of
+                (Just workTime, Just breakTime) -> do
+                    putStrLn $ "Starting Pomodoro Timer with " ++ show workTime ++ " minutes of work and " ++ show breakTime ++ " minutes of break."
+                    workTimer (workTime * 60)
+                    breakTimer (breakTime * 60)
+                _ -> putStrLn "Please provide valid integers for work and break times."
+        _ -> putStrLn "Usage: PomodoroCLI <work_time_in_minutes> <break_time_in_minutes>"
+
 
 -- generic timer
 timer :: Int -> IO ()
