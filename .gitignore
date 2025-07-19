@@ -1,0 +1,22 @@
+# Build directories
+dist-newstyle/
+.stack-work/
+
+# Haskell compiled files
+*.hi
+*.o
+*.prof
+*.eventlog
+
+# macOS system files
+.DS_Store
+
+# Editor folders and files
+.vscode/
+*.swp
+*.swo
+*.tmp
+
+# Logs and temporary files
+*.log
+*.tmp
