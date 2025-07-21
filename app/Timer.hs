@@ -3,36 +3,37 @@ module Timer (timer) where
 import Control.Concurrent (threadDelay)
 import Text.Printf (printf)
 import System.IO (hFlush, stdout)
-import Data.IORef
 import System.Console.ANSI (cursorUpLine, clearLine)
+import Data.IORef
+import Control.Concurrent.MVar (tryTakeMVar, MVar)
 
-
-
---generic timer
-timer :: Int -> IORef Bool -> IORef Bool -> IO ()
-timer 0 _ _ = do
+timer :: Int -> IORef Bool -> MVar Bool -> IORef Bool -> IO ()
+timer 0 _ _ _ = do
     putStrLn "\r00:00 remaining"
     putStrLn "Time's up!"
-timer n pauseFlag skipFlag = do
-    paused <- readIORef pauseFlag
-    skip <- readIORef skipFlag
+timer n pauseFlag skipSignal skippedRef = do
+    skipTaken <- tryTakeMVar skipSignal
+    case skipTaken of
+        Just _ -> writeIORef skippedRef True
+        Nothing -> return ()
 
-    if skip then do
+    skipped <- readIORef skippedRef
+    if skipped then do
         clearLines (catHeight + 1)
         putStrLn "\nSkipped remaining time."
-        writeIORef skipFlag False
-        return ()
-    else if paused then do
-        threadDelay 500000
-        timer n pauseFlag skipFlag
     else do
-        let mins = n `div` 60
-        let secs = n `mod` 60
-        printf "\r%02d:%02d remaining" mins secs
-        hFlush stdout
-        threadDelay 1000000
-        timer (n - 1) pauseFlag skipFlag
-    
+        paused <- readIORef pauseFlag
+        if paused then do
+            threadDelay 500000
+            timer n pauseFlag skipSignal skippedRef
+        else do
+            let mins = n `div` 60
+            let secs = n `mod` 60
+            printf "\r%02d:%02d remaining" mins secs
+            hFlush stdout
+            threadDelay 1000000
+            timer (n - 1) pauseFlag skipSignal skippedRef
+
 catHeight :: Int
 catHeight = 2
 

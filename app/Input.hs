@@ -1,17 +1,18 @@
 module Input (inputListener) where
 
 import System.IO (hSetBuffering, BufferMode(NoBuffering), stdin, hGetChar)
-import Data.IORef
-import Control.Monad (when, forever)
+import Control.Monad (forever)
 import System.IO (hFlush, stdout)
 import System.Posix.Process (exitImmediately)
-import System.Exit (ExitCode(..))  -- for ExitSuccess, ExitFailure, etc.
+import System.Exit (ExitCode(..))
 import System.Console.ANSI (cursorUpLine, clearLine, cursorDownLine)
+import Control.Concurrent.MVar (tryPutMVar, MVar)
+import Data.IORef (IORef, readIORef, writeIORef)
 
---listen for input
-inputListener :: IORef Bool -> IORef Bool -> IO ()
-inputListener pauseFlag skipFlag = do
-    hSetBuffering stdin NoBuffering --set input so u dont have to press enter
+
+inputListener :: IORef Bool -> MVar Bool -> IO ()
+inputListener pauseFlag skipSignal = do
+    hSetBuffering stdin NoBuffering
     forever $ do
         c <- hGetChar stdin
         case c of
@@ -19,15 +20,15 @@ inputListener pauseFlag skipFlag = do
                 putStrLn "\nQuitting..."
                 exitImmediately ExitSuccess
             's' -> do
-                writeIORef skipFlag True
-                putStrLn "DEBUG: Skip flag set to True"
+                _ <- tryPutMVar skipSignal True
+                putStrLn "DEBUG: Skip signal set"
             'p' -> do
                 paused <- readIORef pauseFlag
                 let newPaused = not paused
                 writeIORef pauseFlag newPaused
                 putStrLn $ "DEBUG: Pause flag toggled to " ++ show newPaused
             _ -> return ()
-        
+
 catHeight :: Int
 catHeight = 2
 

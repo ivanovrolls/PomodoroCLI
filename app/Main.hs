@@ -20,9 +20,16 @@ main = do
         [workStr, breakStr] -> do
             case (readMaybe workStr :: Maybe Int, readMaybe breakStr :: Maybe Int) of
                 (Just workTime, Just breakTime) -> do
+                    pauseFlag <- newIORef False
+                    skipSignal <- newEmptyMVar
+                    _ <- forkIO (inputListener pauseFlag skipSignal)
+
                     putStrLn $ "Starting Pomodoro Timer with " ++ show workTime ++ " minutes of work and " ++ show breakTime ++ " minutes of break."
-                    _ <- runSession (workTime * 60) workFrames "\nWork session complete! Time for a break."
-                    skipOccurred <- runSession (breakTime * 60) sleepFrames "\nBreak session complete! Back to work."
+
+                    _ <- runSession (workTime * 60) workFrames "\nWork session complete! Time for a break." pauseFlag skipSignal
+                    skipOccurred <- runSession (breakTime * 60) sleepFrames "\nBreak session complete! Back to work." pauseFlag skipSignal
+
+
                     when skipOccurred $ do
                         putStrLn "Break skipped. Exiting program."
                         exitSuccess
