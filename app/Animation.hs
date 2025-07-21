@@ -9,6 +9,7 @@ module Animation
 import System.Console.ANSI (cursorUpLine, cursorDownLine, clearLine)
 import System.IO (hFlush, stdout)
 import Control.Concurrent (threadDelay)
+import Control.Monad (when)
 import Data.IORef
 import Control.Concurrent.MVar (tryTakeMVar, MVar)
 
@@ -18,9 +19,9 @@ catHeight = 3
 cursorUpN :: Int -> IO ()
 cursorUpN n = cursorUpLine n
 
-animate :: [String] -> Int -> IORef Bool -> MVar Bool -> IORef Bool -> IO ()
-animate _ 0 _ _ _ = return ()
-animate frames n pauseFlag skipSignal skippedRef = do
+animate :: [String] -> Int -> IORef Bool -> MVar Bool -> IORef Bool -> IORef Bool -> IO ()
+animate _ 0 _ _ _ _ = return ()
+animate frames n pauseFlag skipSignal skippedRef prevPausedRef = do
     skipTaken <- tryTakeMVar skipSignal
     case skipTaken of
         Just _ -> writeIORef skippedRef True
@@ -34,9 +35,19 @@ animate frames n pauseFlag skipSignal skippedRef = do
         return ()
     else do
         paused <- readIORef pauseFlag
+        prevPaused <- readIORef prevPausedRef
+
+        when (prevPaused && not paused) $ do
+            cursorUpN catHeight
+            sequence_ [clearLine >> cursorDownLine 1 | _ <- [1..catHeight]]
+            cursorUpN catHeight
+            putStrLn "\rResumed."
+
+        writeIORef prevPausedRef paused
+
         if paused then do
             threadDelay 500000
-            animate frames n pauseFlag skipSignal skippedRef
+            animate frames n pauseFlag skipSignal skippedRef prevPausedRef
         else do
             cursorUpN catHeight
             sequence_ [clearLine >> cursorDownLine 1 | _ <- [1..catHeight]]
@@ -44,7 +55,8 @@ animate frames n pauseFlag skipSignal skippedRef = do
             putStr (frames !! (n `mod` length frames))
             hFlush stdout
             threadDelay 500000
-            animate frames (n - 1) pauseFlag skipSignal skippedRef
+            animate frames (n - 1) pauseFlag skipSignal skippedRef prevPausedRef
+
 
 sleepFrames :: [String]
 sleepFrames =

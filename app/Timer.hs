@@ -19,7 +19,7 @@ timer n pauseFlag skipSignal skippedRef = do
 
     skipped <- readIORef skippedRef
     if skipped then do
-        clearLines (catHeight + 1)
+        clearLines (catHeight)
         putStrLn "\nSkipped remaining time."
     else do
         paused <- readIORef pauseFlag
@@ -35,11 +35,12 @@ timer n pauseFlag skipSignal skippedRef = do
             timer (n - 1) pauseFlag skipSignal skippedRef
 
 catHeight :: Int
-catHeight = 2
+catHeight = 3
 
 clearLines :: Int -> IO ()
 clearLines 0 = return ()
 clearLines n = do
     clearLine
-    cursorUpLine 1
+    if n > 1 then cursorUpLine 1 else return ()
     clearLines (n - 1)
+

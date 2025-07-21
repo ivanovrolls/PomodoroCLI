@@ -30,11 +30,11 @@ inputListener pauseFlag skipSignal = do
             _ -> return ()
 
 catHeight :: Int
-catHeight = 2
+catHeight = 3
 
 clearLines :: Int -> IO ()
 clearLines 0 = return ()
 clearLines n = do
     clearLine
-    if n > 1 then cursorDownLine 1 else return ()
+    if n > 1 then cursorUpLine 1 else return ()
     clearLines (n - 1)
