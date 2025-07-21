@@ -4,6 +4,8 @@ import Control.Concurrent (threadDelay)
 import Text.Printf (printf)
 import System.IO (hFlush, stdout)
 import Data.IORef
+import System.Console.ANSI (cursorUpLine, clearLine)
+
 
 
 --generic timer
@@ -16,8 +18,9 @@ timer n pauseFlag skipFlag = do
     skip <- readIORef skipFlag
 
     if skip then do
-        writeIORef skipFlag False
+        clearLines (catHeight + 1)
         putStrLn "\nSkipped remaining time."
+        writeIORef skipFlag False
         return ()
     else if paused then do
         threadDelay 500000
@@ -30,3 +33,12 @@ timer n pauseFlag skipFlag = do
         threadDelay 1000000
         timer (n - 1) pauseFlag skipFlag
     
+catHeight :: Int
+catHeight = 2
+
+clearLines :: Int -> IO ()
+clearLines 0 = return ()
+clearLines n = do
+    clearLine
+    cursorUpLine 1
+    clearLines (n - 1)
